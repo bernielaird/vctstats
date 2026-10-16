@@ -1,5 +1,6 @@
 package dev.bernie.vct.cli;
 
+import dev.bernie.vct.db.BuildDb;
 import dev.bernie.vct.fetch.Fetcher;
 import dev.bernie.vct.parse.EventFilter;
 import dev.bernie.vct.parse.MatchPageParser;
@@ -23,6 +24,7 @@ import java.util.Set;
  *   fetch    [--limit N]       Pass 2: download queued match pages into data/raw/matches
  *   fetch-logs [--limit N]     Pass 3: download each map's 2D replay page into data/raw/logs
  *   update                     After the first scrape: queue new matches, then fetch + fetch-logs
+ *   build-db                   Pass 4: parse saved match pages into data/vct.db (no network)
  *   status                     Show how many matches are pending / done / failed
  *   retry-failed               Move failed matches back to pending
  */
@@ -37,6 +39,7 @@ public class Main {
     private static final Path MATCH_CACHE = DATA_DIR.resolve("raw/matches");
     private static final Path LOGS_CACHE = DATA_DIR.resolve("raw/logs");
     private static final String DB_PATH = DATA_DIR.resolve("scrape.db").toString();
+    private static final Path VCT_DB = DATA_DIR.resolve("vct.db");
 
     private static final int MAX_ATTEMPTS = 3;
 
@@ -66,6 +69,11 @@ public class Main {
             return;
         }
         Files.createDirectories(DATA_DIR);
+
+        if (args[0].equals("build-db")) {
+            new BuildDb().run(MATCH_CACHE, VCT_DB);
+            return;
+        }
 
         // Only commands that hit vlr.gg need the contact email; status and retry-failed don't.
         Fetcher fetcher = null;
@@ -300,6 +308,7 @@ public class Main {
               fetch [--limit N]          download queued match pages
               fetch-logs [--limit N]     download each map's 2D replay page
               update                     queue new matches since the last run, then fetch them
+              build-db                   rebuild data/vct.db from the saved pages
               status                     show queue progress
               retry-failed               re-queue failed matches""");
     }

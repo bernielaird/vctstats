@@ -8,6 +8,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatchPageParserTest {
@@ -33,8 +34,65 @@ class MatchPageParserTest {
         assertFalse(MatchPageParser.hasReplayData("<div class=\"vm-stats\">No logs</div>"));
     }
 
+    @Test
+    void parsesGrandFinalHeader() throws Exception {
+        MatchPage p = parser.parse(734308, fixture("match-734308.html"));
+
+        assertEquals(2977, p.eventId());
+        assertEquals("VCT 2026: Americas Stage 2", p.eventName());
+        assertEquals("Playoffs: Grand Final", p.stage());
+        assertEquals(Instant.parse("2026-09-06T17:00:00Z"), p.startTime());
+        assertEquals("13.04", p.patch());
+        assertEquals(5, p.bestOf());
+        assertEquals(new MatchPage.Team(120, "100 Thieves"), p.team1());
+        assertEquals(new MatchPage.Team(6961, "LOUD"), p.team2());
+        assertEquals(3, p.team1Score());
+        assertEquals(2, p.team2Score());
+        assertTrue(p.veto().startsWith("100T ban Abyss; 100T ban Lotus; 100T pick Split"));
+        assertFalse(p.isShowmatch());
+    }
+
+    @Test
+    void parsesEveryMapOfGrandFinal() throws Exception {
+        List<MatchPage.MapResult> maps = parser.parse(734308, fixture("match-734308.html")).maps();
+
+        assertEquals(List.of("Split", "Sunset", "Ascent", "Summit", "Haven"),
+                maps.stream().map(MatchPage.MapResult::mapName).toList());
+        assertEquals(List.of(1, 2, 1, 2, 0), maps.stream().map(MatchPage.MapResult::pickedBy).toList());
+        assertEquals(List.of(7, 13, 14, 1, 14), maps.stream().map(MatchPage.MapResult::team1Score).toList());
+        assertEquals(List.of(13, 11, 12, 13, 12), maps.stream().map(MatchPage.MapResult::team2Score).toList());
+
+        // Haven: 100T started on defense, won 5 def + 7 atk + 2 in overtime; LOUD 7 atk + 5 def.
+        MatchPage.MapResult haven = maps.get(4);
+        assertEquals(280042, haven.gameId());
+        assertEquals(5, haven.mapNumber());
+        assertEquals("def", haven.team1StartSide());
+        assertEquals(List.of(7, 5, 2, 7, 5, 0), List.of(haven.team1Atk(), haven.team1Def(), haven.team1Ot(),
+                haven.team2Atk(), haven.team2Def(), haven.team2Ot()));
+        assertTrue(maps.stream().allMatch(MatchPage.MapResult::hasSideSplit));
+        assertEquals(3603, haven.durationSeconds()); // 1:00:03
+    }
+
+    @Test
+    void stripsSponsorFromTeamName() {
+        assertEquals("KOI", MatchPageParser.plainTeamName("Movistar KOI (KOI)"));
+        assertEquals("Bilibili Gaming", MatchPageParser.plainTeamName("Guangzhou Huadu Bilibili Gaming (Bilibili Gaming)"));
+        assertEquals("100 Thieves", MatchPageParser.plainTeamName("100 Thieves"));
+    }
+
+    @Test
+    void parsesDurations() {
+        assertEquals(2526, MatchPageParser.parseDuration("42:06"));
+        assertEquals(3603, MatchPageParser.parseDuration(" 1:00:03 "));
+        assertNull(MatchPageParser.parseDuration(""));
+    }
+
     private String fixture() throws Exception {
-        try (var in = getClass().getResourceAsStream("/fixtures/match-744488.html")) {
+        return fixture("match-744488.html");
+    }
+
+    private String fixture(String name) throws Exception {
+        try (var in = getClass().getResourceAsStream("/fixtures/" + name)) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
