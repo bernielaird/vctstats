@@ -44,8 +44,8 @@ class MatchPageParserTest {
         assertEquals(Instant.parse("2026-09-06T17:00:00Z"), p.startTime());
         assertEquals("13.04", p.patch());
         assertEquals(5, p.bestOf());
-        assertEquals(new MatchPage.Team(120, "100 Thieves"), p.team1());
-        assertEquals(new MatchPage.Team(6961, "LOUD"), p.team2());
+        assertEquals(new MatchPage.Team(120, "100 Thieves", "100T"), p.team1());
+        assertEquals(new MatchPage.Team(6961, "LOUD", "LOUD"), p.team2());
         assertEquals(3, p.team1Score());
         assertEquals(2, p.team2Score());
         assertTrue(p.veto().startsWith("100T ban Abyss; 100T ban Lotus; 100T pick Split"));
@@ -71,6 +71,61 @@ class MatchPageParserTest {
                 haven.team2Atk(), haven.team2Def(), haven.team2Ot()));
         assertTrue(maps.stream().allMatch(MatchPage.MapResult::hasSideSplit));
         assertEquals(3603, haven.durationSeconds()); // 1:00:03
+    }
+
+    @Test
+    void parsesPlayerStatsBySide() throws Exception {
+        MatchPage.MapResult haven = parser.parse(734308, fixture("match-734308.html")).maps().get(4);
+
+        assertEquals(10, haven.players().size());
+        assertEquals(5, haven.players().stream().filter(ps -> ps.team() == 1).count());
+
+        MatchPage.PlayerStats timotino = haven.players().get(0);
+        assertEquals(29893, timotino.playerId());
+        assertEquals("Timotino", timotino.name());
+        assertEquals("Canada", timotino.country());
+        assertEquals(1, timotino.team());
+        assertEquals("Neon", timotino.agent());
+
+        MatchPage.SideStats both = timotino.sides().get(0);
+        assertEquals("both", both.side());
+        assertEquals(1.47, both.rating());
+        assertEquals(289, both.acs());
+        assertEquals(27, both.kills());
+        assertEquals(85, both.kastPct());
+        assertEquals(173, both.adr());
+        assertEquals(24, both.hsPct());
+        assertEquals(8, both.firstKills());
+        assertEquals(2, both.firstDeaths());
+
+        MatchPage.SideStats atk = timotino.sides().get(1);
+        MatchPage.SideStats def = timotino.sides().get(2);
+        assertEquals("atk", atk.side());
+        assertEquals(1.30, atk.rating());
+        assertEquals(13, atk.kills());
+        assertEquals(1.65, def.rating());
+        assertEquals(14, def.kills());
+    }
+
+    @Test
+    void parsesRoundStrip() throws Exception {
+        List<MatchPage.RoundResult> rounds = parser.parse(734308, fixture("match-734308.html")).maps().get(4).rounds();
+
+        assertEquals(26, rounds.size());
+        // Round 1: 100T defending, elimination. Round 3: LOUD attack, spike detonated.
+        assertEquals(new MatchPage.RoundResult(1, 1, "def", "elim", 1, 0), rounds.get(0));
+        assertEquals(new MatchPage.RoundResult(3, 2, "atk", "boom", 2, 1), rounds.get(2));
+        assertEquals(new MatchPage.RoundResult(6, 1, "def", "time", 3, 3), rounds.get(5));
+        assertEquals(new MatchPage.RoundResult(26, 1, "atk", "elim", 14, 12), rounds.get(25));
+    }
+
+    @Test
+    void readsStatValues() {
+        assertEquals(1.47, MatchPageParser.parseStat("1.47", true));
+        assertEquals(85, MatchPageParser.parseStat("85%", false));
+        assertEquals(12, MatchPageParser.parseStat("+12", false));
+        assertNull(MatchPageParser.parseStat("", false));
+        assertNull(MatchPageParser.parseStat("-", false));
     }
 
     @Test

@@ -1,10 +1,14 @@
 package dev.bernie.vct.parse;
 
 import dev.bernie.vct.parse.MatchPage.MapResult;
+import dev.bernie.vct.parse.MatchPage.PlayerStats;
+import dev.bernie.vct.parse.MatchPage.RoundResult;
+import dev.bernie.vct.parse.MatchPage.SideStats;
 import dev.bernie.vct.parse.MatchPage.Team;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -20,7 +24,8 @@ import java.util.regex.Pattern;
 
 /**
  * Reads a saved vlr.gg match overview page: the match header (event, teams, series score)
- * and each map's header (map, score, rounds by side). Player stats come later.
+ * and, per map, the map header (score, rounds by side), both teams' player stat tables,
+ * and the round-by-round strip.
  */
 public class MatchPageParser {
 
@@ -36,6 +41,9 @@ public class MatchPageParser {
 
     private static final Pattern EVENT_PATH = Pattern.compile("^/event/(\\d+)/");
     private static final Pattern TEAM_PATH = Pattern.compile("^/team/(\\d+)/");
+    private static final Pattern PLAYER_PATH = Pattern.compile("^/player/(\\d+)/");
+    private static final Pattern ROUND_SCORE = Pattern.compile("^(\\d+)-(\\d+)$");
+    private static final Pattern ROUND_ICON = Pattern.compile("/round/([a-z]+)\\.");
     private static final Pattern PATCH = Pattern.compile("Patch\\s+(\\d+\\.\\d+)");
     private static final Pattern BEST_OF = Pattern.compile("^Bo(\\d+)$", Pattern.CASE_INSENSITIVE);
 
@@ -106,8 +114,10 @@ public class MatchPageParser {
             patch = m.find() ? m.group(1) : null;
         }
 
-        Team team1 = team(doc, "mod-1");
-        Team team2 = team(doc, "mod-2");
+        // Tags ("100T") only appear in each map's round strip, as a pair; the first map's will do.
+        Elements tags = doc.select(".vlr-rounds-row-col.mod-teams .vlr-rounds-tag");
+        Team team1 = team(doc, "mod-1", tags.size() >= 2 ? tags.get(0).text() : null);
+        Team team2 = team(doc, "mod-2", tags.size() >= 2 ? tags.get(1).text() : null);
 
         // Spans are in team order; their winner/loser class says nothing about position.
         List<Element> scores = doc.select(".match-header-vs-score "
@@ -134,7 +144,7 @@ public class MatchPageParser {
             Element block = doc.selectFirst(".vm-stats-game[data-game-id=" + gameId + "]");
             Element header = block == null ? null : block.selectFirst(".vm-stats-game-header");
             if (header != null) {
-                maps.add(mapResult(gameId, ++mapNumber, header));
+                maps.add(mapResult(gameId, ++mapNumber, header, block));
             }
         }
 
@@ -142,11 +152,11 @@ public class MatchPageParser {
                 team1, team2, team1Score, team2Score, veto, maps);
     }
 
-    private static Team team(Document doc, String side) {
+    private static Team team(Document doc, String side, String tag) {
         Element link = require(doc.selectFirst("a.match-header-link." + side), "team link " + side);
         long id = idFromPath(TEAM_PATH, link.attr("href"), "team");
         String name = require(link.selectFirst(".wf-title-med"), "team name " + side).text();
-        return new Team(id, plainTeamName(name));
+        return new Team(id, plainTeamName(name), tag == null || tag.isBlank() ? null : tag.trim());
     }
 
     /** "Movistar KOI (KOI)" becomes "KOI"; names without a sponsor are unchanged. */
@@ -155,7 +165,7 @@ public class MatchPageParser {
         return m.matches() ? m.group(1).trim() : name.trim();
     }
 
-    private static MapResult mapResult(long gameId, int mapNumber, Element header) {
+    private static MapResult mapResult(long gameId, int mapNumber, Element header, Element block) {
         List<Element> teams = header.select("> .team");
         if (teams.size() != 2) {
             throw new IllegalArgumentException("map " + gameId + ": expected 2 teams in header");
@@ -181,7 +191,84 @@ public class MatchPageParser {
                 !split ? null : t1[3] == 1 ? "atk" : "def",
                 split ? t1[0] : null, split ? t1[1] : null, split ? t1[2] : null,
                 split ? t2[0] : null, split ? t2[1] : null, split ? t2[2] : null,
-                duration == null ? null : parseDuration(duration.text()));
+                duration == null ? null : parseDuration(duration.text()),
+                players(block), rounds(block));
+    }
+
+    // Stat columns on the overview table, by their data-col name.
+    private static final String[] STAT_COLS = {"rating2", "acs", "kills", "deaths", "assists",
+            "kast", "adr", "hsp", "fb", "fd"};
+    private static final String[][] SIDES = {{"both", "mod-both"}, {"atk", "mod-t"}, {"def", "mod-ct"}};
+
+    /** Two .ovw-table blocks per map: team 1's five rows, then team 2's. */
+    private static List<PlayerStats> players(Element block) {
+        List<PlayerStats> out = new ArrayList<>();
+        Elements tables = block.select(".ovw-table");
+        for (int t = 0; t < tables.size() && t < 2; t++) {
+            for (Element row : tables.get(t).select(".ovw-row:not(.mod-head)")) {
+                Element link = row.selectFirst(".ovw-player a[href^=/player/]");
+                if (link == null) {
+                    continue; // showmatch guests without a vlr.gg profile
+                }
+                long playerId = idFromPath(PLAYER_PATH, link.attr("href"), "player");
+                Element name = row.selectFirst(".ovw-player-name");
+                Element flag = row.selectFirst(".ovw-player .flag[title]");
+                List<String> agents = row.select(".ovw-agents img[title]").eachAttr("title");
+
+                List<SideStats> sides = new ArrayList<>();
+                for (String[] side : SIDES) {
+                    Number[] v = new Number[STAT_COLS.length];
+                    for (int c = 0; c < STAT_COLS.length; c++) {
+                        Element cell = row.selectFirst("[data-col=" + STAT_COLS[c] + "] .side." + side[1]);
+                        v[c] = cell == null ? null : parseStat(cell.text(), c == 0);
+                    }
+                    sides.add(new SideStats(side[0], (Double) v[0], (Integer) v[1], (Integer) v[2],
+                            (Integer) v[3], (Integer) v[4], (Integer) v[5], (Integer) v[6], (Integer) v[7],
+                            (Integer) v[8], (Integer) v[9]));
+                }
+                out.add(new PlayerStats(playerId, name == null ? link.text() : name.text(),
+                        flag == null ? null : flag.attr("title"), t + 1,
+                        agents.isEmpty() ? null : String.join("/", agents), sides));
+            }
+        }
+        return out;
+    }
+
+    /** "1.47" (rating, as Double), "85%", "+12", "173"; blank or "-" means not recorded. */
+    static Number parseStat(String text, boolean decimal) {
+        String t = text.replace("%", "").replace("+", "").replace("−", "-").trim();
+        if (t.isEmpty() || !t.matches("-?\\d+(\\.\\d+)?")) {
+            return null;
+        }
+        return decimal ? (Number) Double.parseDouble(t) : (Number) (int) Math.round(Double.parseDouble(t));
+    }
+
+    /**
+     * The round strip: one column per round with the winner's square marked mod-win,
+     * the winner's side as mod-t (atk) / mod-ct (def), and an icon for how it ended.
+     */
+    private static List<RoundResult> rounds(Element block) {
+        List<RoundResult> out = new ArrayList<>();
+        for (Element col : block.select(".vlr-rounds-row-col[title]")) {
+            Element num = col.selectFirst(".rnd-num");
+            Elements squares = col.select(".rnd-sq");
+            Matcher score = ROUND_SCORE.matcher(col.attr("title"));
+            if (num == null || squares.size() != 2 || !score.matches() || !num.text().trim().matches("\\d+")) {
+                continue;
+            }
+            int winner = squares.get(0).hasClass("mod-win") ? 1 : squares.get(1).hasClass("mod-win") ? 2 : 0;
+            if (winner == 0) {
+                continue; // a round that wasn't played (shown as an empty column)
+            }
+            Element win = squares.get(winner - 1);
+            Element icon = win.selectFirst("img[src]");
+            Matcher how = icon == null ? null : ROUND_ICON.matcher(icon.attr("src"));
+            out.add(new RoundResult(Integer.parseInt(num.text().trim()), winner,
+                    win.hasClass("mod-t") ? "atk" : win.hasClass("mod-ct") ? "def" : null,
+                    how != null && how.find() ? how.group(1) : null,
+                    Integer.parseInt(score.group(1)), Integer.parseInt(score.group(2))));
+        }
+        return out;
     }
 
     private static int score(Element team) {
