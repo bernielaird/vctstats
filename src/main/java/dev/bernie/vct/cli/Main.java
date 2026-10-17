@@ -24,7 +24,7 @@ import java.util.Set;
  *   fetch    [--limit N]       Pass 2: download queued match pages into data/raw/matches
  *   fetch-logs [--limit N]     Pass 3: download each map's 2D replay page into data/raw/logs
  *   update                     After the first scrape: queue new matches, then fetch + fetch-logs
- *   build-db                   Pass 4: parse saved match pages into data/vct.db (no network)
+ *   build-db                   Pass 4: parse saved match + replay pages into data/vct.db (no network)
  *   status                     Show how many matches are pending / done / failed
  *   retry-failed               Move failed matches back to pending
  */
@@ -71,7 +71,7 @@ public class Main {
         Files.createDirectories(DATA_DIR);
 
         if (args[0].equals("build-db")) {
-            new BuildDb().run(MATCH_CACHE, VCT_DB);
+            new BuildDb().run(MATCH_CACHE, LOGS_CACHE, VCT_DB);
             return;
         }
 
