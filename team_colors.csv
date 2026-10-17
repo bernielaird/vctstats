@@ -1,0 +1,84 @@
+team_id,name,tag,region,last_year,matches,primary,secondary,confidence
+120,100 Thieves,100T,Americas,2026,87,#ea3232,black,logo
+15072,2Game Esports,2G,Americas,2026,14,purple,black,yours
+22142,BESTIA,BST,Americas,2026,3,white,black,yours
+188,Cloud9,C9,Americas,2026,71,#26ace2,white,logo
+427,ENVY,ENVY,Americas,2026,19,navy,black,sure
+5248,Evil Geniuses,EG,Americas,2026,77,#202d5a,white,logo
+23141,Fluxo W7M,FX,Americas,2026,2,black,#800088,logo
+2406,FURIA,FUR,Americas,2026,63,black,white,sure
+11058,G2 Esports,G2,Americas,2026,114,red,black,sure
+2355,KRÜ Esports,KRÜ,Americas,2026,76,#ff198f,black,logo
+2359,LEVIATÁN,LEV,Americas,2026,94,#69abdc,black,logo
+6961,LOUD,LOUD,Americas,2026,87,#13ff00,black,logo
+11001,M80,M80,Americas,2026,2,#dbff00,black,logo
+7386,MIBR,MIBR,Americas,2026,76,black,white,sure
+1034,NRG,NRG,Americas,2026,102,#f73d0a,black,logo
+2,Sentinels,SEN,Americas,2026,92,#ce0037,black,logo
+20603,A Team,AT,China,2026,2,black,white,guess
+1119,All Gamers,AG,China,2026,58,#da251c,black,logo
+1837,Attacking Soul Esports,ASE,China,2023,5,#fc4f2f,black,logo
+12010,Bilibili Gaming,BLG,China,2026,79,#36d0f4,#d087ac,logo
+12011,Douyu Gaming,DYG,China,2023,5,#c95d2d,#0c1f3d,logo
+11981,Dragon Ranger Gaming,DRG,China,2026,76,#2e60f9,#77f45b,logo
+1120,EDward Gaming,EDG,China,2026,114,black,white,sure
+11980,Four Angry Men,4AM,China,2023,6,black,white,logo
+11328,FunPlus Phoenix,FPX,China,2026,67,#ff0600,black,logo
+12202,Gank Gaming,GK,China,2023,5,#e50a55,black,logo
+4683,Invincible Gaming,iNv,China,2023,4,black,white,guess
+13576,JD Gaming,JDG,China,2026,58,#c8102e,black,logo
+12784,KeepBest Gaming,KBG,China,2026,2,#492678,#e7b350,logo
+11983,Kingzone,KZ,China,2023,3,#0071d0,#053a8d,logo
+9052,Monarch Effect,ME,China,2023,7,black,white,guess
+5944,Night Wings Gaming,NWG,China,2023,5,#339bfe,navy,logo
+12064,Nova Esports,NOVA,China,2026,52,#a455ba,white,logo
+4460,Number One Player,NOP,China,2023,4,#fe0002,#054afd,logo
+11985,Rare Atom,RA,China,2023,3,#b04ec4,black,logo
+804,Royal Never Give Up,RNG,China,2023,5,#b4926a,black,logo
+4462,Shenzhen NTER,NTER,China,2023,6,#b45036,black,logo
+14137,Titan Esports Club,TEC,China,2026,54,#db2b1a,white,logo
+1211,Totoro Gaming,TTG,China,2023,3,black,white,logo
+12685,Trace Esports,TE,China,2026,76,#3f446a,#9f8350,logo
+731,TYLOO,TYL,China,2026,65,#cd3630,black,logo
+1224,Weibo Gaming,WBG,China,2023,7,#e6162d,black,logo
+13790,Wolves Esports,WOL,China,2026,55,#f7b647,black,logo
+13581,Xi Lai Gaming,XLG,China,2026,61,#02aab1,#054a9e,logo
+11479,Apeks,APK,EMEA,2025,12,navy,white,logo
+397,BBL Esports,BBL,EMEA,2026,65,#c39109,black,logo
+14478,Eintracht Frankfurt,SGE,EMEA,2026,5,#e00914,black,logo
+876,Enterprise Esports,EP,EMEA,2026,6,#e61f42,white,logo
+6392,Eternal Fire,EF,EMEA,2026,17,#a0926e,black,logo
+20085,Fire Flux Esports,FF,EMEA,2026,7,#73c8ec,white,logo
+2593,FNATIC,FNC,EMEA,2026,112,#ff5900,black,logo
+1184,FUT Esports,FUT,EMEA,2026,98,navy,white,logo
+12694,Gentle Mates,M8,EMEA,2026,49,black,white,guess
+2304,Giants Gaming,GIA,EMEA,2023,19,black,white,guess
+14419,GIANTX,GX,EMEA,2026,54,blue,black,web
+11232,Joblife,JL,EMEA,2026,5,black,white,guess
+8877,Karmine Corp,KC,EMEA,2026,72,blue,navy,sure
+7035,KOI,MKOI,EMEA,2025,41,#009cde,purple,logo
+4915,Natus Vincere,NAVI,EMEA,2026,76,#ffed00,black,logo
+3478,PCIFIC Esports,PCF,EMEA,2026,15,#42c1dd,#05859f,logo
+1001,Team Heretics,TH,EMEA,2026,105,#b59b51,black,logo
+474,Team Liquid,TL,EMEA,2026,100,navy,light blue,sure
+2059,Team Vitality,VIT,EMEA,2026,90,yellow,black,sure
+18019,ULF Esports,ULF,EMEA,2026,4,black,white,guess
+6387,BLEED,BLD,Pacific,2024,12,#ff0400,black,logo
+466,BOOM Esports,BME,Pacific,2025,14,#990514,black,logo
+278,DetonatioN FocusMe,DFM,Pacific,2026,60,#2568ed,black,logo
+4050,FULL SENSE,FS,Pacific,2026,25,#fd7b01,black,logo
+17,Gen.G,GEN,Pacific,2026,97,#d2b984,black,logo
+918,Global Esports,GE,Pacific,2026,68,#4e5a94,#802751,logo
+8185,KIWOOM DRX,KRX,Pacific,2026,106,#1e2c5d,#de027f,logo
+11060,Nongshim RedForce,NS,Pacific,2026,49,#de2027,black,logo
+19189,ONSIDE GAMING,ONG,Pacific,2026,5,black,white,guess
+624,Paper Rex,PRX,Pacific,2026,130,pink,black,sure
+18299,QT DIG∞,QTD,Pacific,2026,2,#e60012,black,logo
+878,Rex Regum Qeon,RRQ,Pacific,2026,75,#f3aa36,black,logo
+623,Sharper Esports,SP,Pacific,2026,4,#04226c,#5c1246,logo
+14,T1,T1,Pacific,2026,107,#e2012d,black,logo
+8304,TALON,TLN,Pacific,2025,54,#e30041,black,logo
+6199,Team Secret,TS,Pacific,2026,63,black,white,sure
+11229,VARREL,VL,Pacific,2026,16,black,white,guess
+17167,Xipto Esports,XIP,Pacific,2026,2,#ce0000,black,logo
+5448,ZETA DIVISION,ZETA,Pacific,2026,61,black,white,sure

@@ -19,8 +19,10 @@ Tables:
   leaderboard     report.py's table per scope
 """
 import argparse
+import csv
 import datetime
 import os
+import re
 import sqlite3
 import sys
 
@@ -28,12 +30,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from report import build  # noqa: E402  same numbers as report.py
 
 BP = 10000  # basis points
+TEAM_COLORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "team_colors.csv")
+# Words allowed in team_colors.csv, as shades that work on the site's light and dark backgrounds.
+COLOR_WORDS = {
+    "red": "#d7263d", "dark red": "#8f1d2c", "orange": "#f26b1d", "gold": "#d4a72c", "yellow": "#f5d000",
+    "green": "#2e9e4f", "dark green": "#1d6b3a", "teal": "#0f9a9a", "blue": "#2563eb", "light blue": "#4fb3e8",
+    "navy": "#1f2f6b", "purple": "#7c4dcc", "pink": "#ec5fa8", "magenta": "#c2268f", "brown": "#8a5a33",
+    "black": "#111111", "white": "#f5f5f5", "grey": "#808080", "gray": "#808080", "silver": "#b8b8bd",
+}
 
 SCHEMA = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE events (event_id INTEGER PRIMARY KEY, name TEXT NOT NULL, year INTEGER, type TEXT, region TEXT,
                      first_match TEXT, last_match TEXT);
-CREATE TABLE teams (team_id INTEGER PRIMARY KEY, name TEXT NOT NULL, tag TEXT);
+CREATE TABLE teams (team_id INTEGER PRIMARY KEY, name TEXT NOT NULL, tag TEXT,
+                    primary_color TEXT, secondary_color TEXT);  -- #rrggbb from team_colors.csv, or NULL
 CREATE TABLE players (player_id INTEGER PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE matches (match_id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, stage TEXT, start_time TEXT,
                       best_of INTEGER, team1_id INTEGER, team2_id INTEGER, team1_score INTEGER,
@@ -105,6 +116,30 @@ def export_plays(src, dst, scope, top):
         dst.executemany(f"INSERT INTO plays VALUES ({','.join('?' * 14)})", rows)
 
 
+def color(value):
+    """'#e4002b', 'e4002b' or a word from COLOR_WORDS -> '#e4002b'; None if blank or unknown."""
+    v = (value or "").strip().lower()
+    v = COLOR_WORDS.get(v, v)
+    v = v if v.startswith("#") else "#" + v
+    return v if re.fullmatch(r"#[0-9a-f]{6}", v) else None
+
+
+def load_team_colors(dst):
+    """Primary/secondary colors from team_colors.csv onto the exported teams. Bad values are skipped, with a warning."""
+    if not os.path.exists(TEAM_COLORS):
+        print("No team_colors.csv; teams get the default colors.")
+        return
+    with open(TEAM_COLORS, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            vals = [color(r.get(k)) for k in ("primary", "secondary")]
+            for k, raw, v in zip(("primary", "secondary"), (r.get("primary"), r.get("secondary")), vals):
+                if (raw or "").strip() and v is None:
+                    print(f"team_colors.csv: {r.get('name')}: unknown {k} color {raw!r} (use #rrggbb or one of: "
+                          f"{', '.join(COLOR_WORDS)})")
+            dst.execute("UPDATE teams SET primary_color = ?, secondary_color = ? WHERE team_id = ?",
+                        (*vals, int(r["team_id"])))
+
+
 def export(src, out, years, top_plays):
     if os.path.exists(out):
         os.remove(out)
@@ -142,9 +177,10 @@ def export(src, out, years, top_plays):
                w.traded_by_event IS NOT NULL
         FROM event_wpa w JOIN replay_events e USING (game_id, round_num, event_num)
         WHERE w.game_id IN (SELECT game_id FROM g)""")
-    copy("teams", """SELECT team_id, name, tag FROM teams WHERE team_id IN
+    copy("teams", """SELECT team_id, name, tag, NULL, NULL FROM teams WHERE team_id IN
                      (SELECT team1_id FROM matches m JOIN maps mp USING (match_id) WHERE mp.game_id IN (SELECT game_id FROM g)
                       UNION SELECT team2_id FROM matches m JOIN maps mp USING (match_id) WHERE mp.game_id IN (SELECT game_id FROM g))""")
+    load_team_colors(dst)
     copy("players", """SELECT player_id, name FROM players WHERE player_id IN
                        (SELECT player_id FROM player_map_stats WHERE game_id IN (SELECT game_id FROM g))""")
 
