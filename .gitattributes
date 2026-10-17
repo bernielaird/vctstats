@@ -1,0 +1,3 @@
+# Saved vlr.gg pages the parser tests run against: real data, not code, so leave them out of
+# GitHub's language stats (they're ~2 MB of HTML and would otherwise make the repo look like HTML).
+src/test/resources/fixtures/** linguist-vendored

@@ -12,6 +12,9 @@ players who caused it: **win probability added (WPA)**.
   spike state and economy, evaluated on a season it never saw.
 - **WPA:** credits every kill and death, with a trade adjustment, and reports per-player WPA with
   uncertainty ranges and shrinkage for small samples.
+- **Validation:** tests whether WPA measures repeatable skill (split-half stability, out-of-sample
+  map prediction). It doesn't beat vlr.gg's Rating 2.0, and the README explains why
+  ([results](#does-wpa-measure-skill-validation)).
 
 ## Example: one round, kill by kill
 
@@ -72,6 +75,43 @@ lukxo's four kills were worth about **+56%** of a round win to LOUD. Darker's de
 | Jemkin | RRQ | 1,159 | 1.12 | 1.64 | 1.1 to 3.6 |
 
 Net WPA correlates 0.90 with vlr.gg's rating. The interesting cases are where they disagree.
+
+## Does WPA measure skill? (validation)
+
+WPA describes who contributed to winning a given set of rounds. Whether it's a better *skill*
+measure than existing stats is a separate question, tested two ways:
+
+**1. Stability** ([`stability.py`](model/stability.py)). Split each player's maps in two (odd/even,
+in date order) and correlate each stat between the halves; 272 players with 400+ rounds per half.
+
+| Stat | ADR | ACS | Kills/round | K/D | Rating | **Net WPA** | KAST | (FK−FD)/round |
+|---|---|---|---|---|---|---|---|---|
+| Split-half r | 0.83 | 0.82 | 0.80 | 0.74 | 0.70 | **0.62** | 0.62 | 0.44 |
+
+WPA is noisier than rating, ACS or K/D (also within role). First-half K/D predicts second-half WPA
+as well as first-half WPA does (0.61 vs 0.60).
+
+**2. Predicting future maps** ([`predict_test.py`](model/predict_test.py)). For each map, each
+team's five players are scored with stats from *earlier matches only*; shrinkage is tuned per stat
+on 2023–2024; tested on 1,567 maps from 2025–2026.
+
+| Model | Test log loss | Accuracy |
+|---|---|---|
+| vlr.gg rating | **0.676** | 56.1% |
+| Rating + WPA | 0.676 | 56.5% |
+| K/D | 0.677 | 57.0% |
+| Net WPA | 0.680 | 56.6% |
+| Team Elo (results only) | 0.683 | 56.2% |
+| Coin flip | 0.693 | 50.0% |
+
+WPA predicts about as well as K/D, slightly (not significantly) worse than rating, and **adds nothing
+on top of rating**. Single pro maps are hard to call for any stat: the best model is ~56% accurate.
+
+**Conclusion:** WPA's extra ingredient, *when* kills and deaths happen, is real in the moment but
+doesn't repeat. Over many rounds, what persists is what K/D and rating already capture, consistent
+with clutch performance in other sports mostly not being a repeatable skill. So WPA is reported here
+as a **descriptive** stat (who decided these rounds), not as a better player ranking than Rating 2.0.
+The calibrated win probability model underneath is the project's main tool.
 
 ## How it works
 
@@ -141,6 +181,10 @@ python -m venv .venv
 .venv\Scripts\python model\report.py --season 2026
 .venv\Scripts\python model\report.py --event "VCT 2026: Americas Stage 2"
 
+# validation tests
+.venv\Scripts\python model\stability.py
+.venv\Scripts\python model\predict_test.py
+
 # tests
 .\gradlew.bat test
 ```
@@ -155,7 +199,7 @@ src/main/java/dev/bernie/vct/
   store/    scrape queue (data/scrape.db)
   db/       build-db: schema, game states, prices, validation
 src/test/   JUnit tests, with saved vlr.gg pages as fixtures
-model/      train_wpa.py, event_wpa.py, report.py
+model/      train_wpa.py, event_wpa.py, report.py, stability.py, predict_test.py
 pipeline.ps1
 ```
 
