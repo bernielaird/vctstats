@@ -20,7 +20,8 @@ Credit (to the player's own team, so positive = helped their team):
   kill       killer gets +change, victim gets -change
   teamkill   the teamkiller gets the (negative) change, the victim nothing
   spike/fall death (no killer)  the victim gets the change
-  plant / defuse                the planter / defuser gets the change
+  plant / defuse                nobody by default (round_wpa.spike_atk); --credit-spike credits the
+                                planter / defuser
 
 Run from the project root after train_wpa.py:
     .venv\\Scripts\\python model\\event_wpa.py
@@ -46,6 +47,10 @@ COL = {name: i for i, name in enumerate(COLUMNS)}
 # 1.0 judges the traded death purely by the win probability after the trade (the trader keeps
 # nothing); 0 is no adjustment. Tune with --compare.
 DEFAULT_TRADE_REFUND = 0.5
+
+# Plants and defuses change win probability (the model keeps the spike state), but by default
+# nobody is credited for them: player WPA is kills and deaths only. --credit-spike turns it on.
+DEFAULT_CREDIT_SPIKE = False
 
 
 def load(db: str):
@@ -87,7 +92,7 @@ def label(ev, kills_so_far):
     return "kill", None
 
 
-def credits(action: str, atk_change: float, attacker, actor_team, victim_team):
+def credits(action: str, atk_change: float, attacker, actor_team, victim_team, credit_spike):
     """(actor credit, victim credit), each from that player's own team's point of view."""
     def for_team(team):
         return atk_change if team == attacker else -atk_change
@@ -97,11 +102,11 @@ def credits(action: str, atk_change: float, attacker, actor_team, victim_team):
     if action in ("spike_death", "environment_death"):
         return None, for_team(victim_team)
     if action in ("plant", "defuse"):
-        return for_team(actor_team), None
+        return (for_team(actor_team) if credit_spike else None), None
     return for_team(actor_team), for_team(victim_team)
 
 
-def build(states, before, events, outcomes, trade_refund):
+def build(states, before, events, outcomes, trade_refund, credit_spike=DEFAULT_CREDIT_SPIKE):
     pb = {(g, r, e): p for g, r, e, p in before.itertuples(index=False)}
     ev_by_round = defaultdict(list)
     for ev in events.itertuples(index=False):
@@ -118,6 +123,7 @@ def build(states, before, events, outcomes, trade_refund):
         row_of = {}  # event_num -> index in rows, so a trade can adjust the death it avenged
         p_prev, prev = s0.atk_win_prob, s0
         clock_total = 0.0
+        spike_total = [0.0]  # uncredited plant/defuse change this round (a list so add() can update it)
 
         def add(ev, p_after, prev_state, is_ending):
             nonlocal clock_total
@@ -125,7 +131,10 @@ def build(states, before, events, outcomes, trade_refund):
             clock_total += p_before - prev_state.atk_win_prob
             change = p_after - p_before
             action, traded = label(ev, kills_so_far)
-            actor_credit, victim_credit = credits(action, change, attacker, ev.actor_team_id, ev.victim_team_id)
+            actor_credit, victim_credit = credits(action, change, attacker, ev.actor_team_id, ev.victim_team_id,
+                                                  credit_spike)
+            if ev.type in ("plant", "defuse") and not credit_spike:
+                spike_total[0] += change
             row = [g, r, ev.event_num, ev.time_seconds, ev.type, action,
                    int(is_ending and ev.type == "kill"), int(prev_state.spike_planted),
                    prev_state.atk_alive, prev_state.def_alive,
@@ -139,7 +148,7 @@ def build(states, before, events, outcomes, trade_refund):
 
             # Trade: the avenged teammate's death is judged with the trade included. Part of the
             # trader's credit moves to them, so the team's total for the exchange is unchanged.
-            if traded is not None and actor_credit > 0 and trade_refund > 0:
+            if traded is not None and actor_credit is not None and actor_credit > 0 and trade_refund > 0:
                 refund = trade_refund * actor_credit
                 row[COL["actor_credit"]] -= refund
                 death = rows[row_of[traded.event_num]]
@@ -170,11 +179,11 @@ def build(states, before, events, outcomes, trade_refund):
         else:
             residual = result - prev.atk_win_prob
             end_type = {"boom": "detonation", "time": "time"}.get(outcome.get((g, r)), "unrecorded")
-        round_rows.append((g, r, attacker, s0.atk_win_prob, clock_total, end_type, residual, result))
+        round_rows.append((g, r, attacker, s0.atk_win_prob, clock_total, spike_total[0], end_type, residual, result))
 
     return (pd.DataFrame(rows, columns=COLUMNS),
             pd.DataFrame(round_rows, columns=["game_id", "round_num", "attacker_id", "start_prob",
-                                              "clock_atk", "end_type", "ending_atk", "atk_won"]))
+                                              "clock_atk", "spike_atk", "end_type", "ending_atk", "atk_won"]))
 
 
 SCHEMA = [
@@ -206,6 +215,7 @@ SCHEMA = [
         game_id INTEGER NOT NULL, round_num INTEGER NOT NULL, attacker_id INTEGER NOT NULL,
         start_prob REAL NOT NULL,   -- attackers' win prob at round start
         clock_atk REAL NOT NULL,    -- total drift from time passing between actions
+        spike_atk REAL NOT NULL,    -- change from plants/defuses when they aren't credited to players
         end_type TEXT NOT NULL,     -- wipe | defuse | detonation | time | unrecorded
         ending_atk REAL NOT NULL,   -- change with no action behind it (detonation, time out)
         atk_won INTEGER NOT NULL,
@@ -216,7 +226,8 @@ SCHEMA = [
     # Every credit a player received on a map, as the actor or as the victim.
     """CREATE VIEW player_wpa_maps AS
     WITH credit AS (
-        SELECT game_id, actor_id AS player_id, actor_credit AS wpa FROM event_wpa WHERE actor_id IS NOT NULL
+        SELECT game_id, actor_id AS player_id, actor_credit AS wpa FROM event_wpa
+        WHERE actor_id IS NOT NULL AND actor_credit IS NOT NULL
         UNION ALL
         SELECT game_id, victim_id, victim_credit FROM event_wpa WHERE victim_id IS NOT NULL AND victim_credit IS NOT NULL
     )
@@ -264,7 +275,8 @@ def report(db, events, rounds):
           f"Rounds that add up exactly: {100 * np.mean(err < 1e-9):.2f}% (worst error {err.max():.2e})")
     print("How rounds ended:", r["end_type"].value_counts().to_dict())
     print(f"Average size per round: actions {events.groupby(['game_id', 'round_num'])['atk_change'].apply(lambda x: x.abs().sum()).mean():.3f}, "
-          f"clock {r['clock_atk'].abs().mean():.3f}, unassigned ending {r['ending_atk'].abs().mean():.3f}")
+          f"clock {r['clock_atk'].abs().mean():.3f}, uncredited spike {r['spike_atk'].abs().mean():.3f}, "
+          f"unassigned ending {r['ending_atk'].abs().mean():.3f}")
 
     e = events.copy()
     e["actor_side"] = np.where(e["actor_team_id"] == e["attacker_id"], "attacker", "defender")
@@ -351,6 +363,8 @@ def main():
     ap.add_argument("--db", default="data/vct.db")
     ap.add_argument("--trade-refund", type=float, default=DEFAULT_TRADE_REFUND,
                     help="share of a trade kill's credit given back to the traded teammate (0-1)")
+    ap.add_argument("--credit-spike", action="store_true", default=DEFAULT_CREDIT_SPIKE,
+                    help="also credit planters and defusers (off by default: kills and deaths only)")
     ap.add_argument("--compare", action="store_true",
                     help="print results for several --trade-refund values; writes nothing")
     args = ap.parse_args()
@@ -359,9 +373,10 @@ def main():
     if args.compare:
         compare(args.db, states, before, events, outcomes)
         return
-    ev, rounds = build(states, before, events, outcomes, args.trade_refund)
+    ev, rounds = build(states, before, events, outcomes, args.trade_refund, args.credit_spike)
     write(args.db, ev, rounds)
     print(f"Trade refund: {args.trade_refund:.2f} of each trade kill's credit goes to the traded teammate")
+    print(f"Plants/defuses credited to players: {'yes' if args.credit_spike else 'no'}")
     report(args.db, ev, rounds)
     print(f"\nWrote event_wpa, round_wpa, player_wpa_maps, player_wpa to {args.db} in {time.time() - started:.0f}s")
 
