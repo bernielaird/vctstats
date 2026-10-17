@@ -8,14 +8,14 @@ Probabilities and credits are stored as integers in basis points (1/10,000) to k
 5690 = 56.9%. The name avoids .sqlite3, which the website's .gitignore ignores.
 
 Scopes: leaderboard and plays rows are computed for 'all' (every year together), each year ('y2026')
-and, for the leaderboard, each event ('e2976').
+and each event with replay data ('e2976').
 
 Tables:
   meta            key/value: years, counts, when it was built
   events, teams, players, matches, maps    every exported match (no showmatches)
   rounds          one row per round: who attacked, who won, attackers' win prob at round start
   actions         every kill/plant/defuse on replay maps: win prob before/after, credit to each player
-  plays           best rounds, kills, maps and matches by one player, per scope
+  plays           best rounds, maps and matches by one player, per scope
   leaderboard     report.py's table per scope
 """
 import argparse
@@ -57,8 +57,8 @@ CREATE TABLE player_maps (game_id INTEGER NOT NULL, player_id INTEGER NOT NULL, 
                           wpa INTEGER,                 -- player's total WPA on the map (bp); NULL without replay
                           PRIMARY KEY (game_id, player_id)) WITHOUT ROWID;
 CREATE INDEX player_maps_player ON player_maps (player_id);
-CREATE TABLE plays (scope TEXT NOT NULL,             -- all | y2026
-                    kind TEXT NOT NULL,              -- kill | round | map | match
+CREATE TABLE plays (scope TEXT NOT NULL,             -- all | y2026 | e2976
+                    kind TEXT NOT NULL,              -- round | map | match
                     rank INTEGER NOT NULL, match_id INTEGER NOT NULL,
                     game_id INTEGER, round_num INTEGER, event_num INTEGER,  -- NULL where not applicable
                     player_id INTEGER, team_id INTEGER, credit INTEGER,     -- player's total WPA (bp)
@@ -75,18 +75,9 @@ CREATE INDEX maps_match ON maps (match_id, map_number);
 
 
 def export_plays(src, dst, scope, top):
-    """Best kills, rounds, maps and matches for the games in temp table gs."""
+    """Best rounds, maps and matches for the games in temp table gs."""
     wpa_bp = f"CAST(ROUND(wpa * {BP}) AS INTEGER)"
     queries = {
-        # Biggest single kills: the largest credit to the killer.
-        "kill": f"""
-            SELECT ROW_NUMBER() OVER (ORDER BY w.actor_credit DESC), mp.match_id, w.game_id, w.round_num,
-                   w.event_num, w.actor_id, w.actor_team_id, CAST(ROUND(w.actor_credit * {BP}) AS INTEGER),
-                   1, NULL, NULL, NULL
-            FROM event_wpa w JOIN maps mp USING (game_id)
-            WHERE w.game_id IN gs AND w.type = 'kill' AND w.actor_credit IS NOT NULL
-                  AND w.actor_team_id != w.victim_team_id
-            ORDER BY w.actor_credit DESC LIMIT ?""",
         # Best single rounds: one player's total credit in a round (clutches, multi-kills).
         "round": f"""
             WITH t AS (SELECT game_id, round_num, player_id, MAX(team_id) AS team_id, SUM(wpa) AS wpa,
@@ -120,7 +111,7 @@ def export(src, out, years, top_plays):
     dst = sqlite3.connect(out)
     dst.executescript(SCHEMA)
     marks = ",".join("?" * len(years))
-    src.execute(f"""CREATE TEMP TABLE g AS SELECT mp.game_id, e.year FROM maps mp JOIN matches m USING (match_id)
+    src.execute(f"""CREATE TEMP TABLE g AS SELECT mp.game_id, e.year, e.event_id FROM maps mp JOIN matches m USING (match_id)
                     JOIN events e USING (event_id) WHERE e.year IN ({marks}) AND NOT m.is_showmatch""", years)
     src.execute("CREATE INDEX temp.g_id ON g (game_id)")
 
@@ -183,11 +174,14 @@ def export(src, out, years, top_plays):
                ON c.game_id = s.game_id AND c.player_id = s.player_id
         WHERE s.side = 'both' AND s.game_id IN (SELECT game_id FROM g)""")
 
-    for scope, year in [("all", None)] + [(f"y{y}", y) for y in years]:
+    replay_events = [i for (i,) in src.execute(
+        "SELECT DISTINCT g.event_id FROM g JOIN maps USING (game_id) WHERE maps.has_replay")]
+    play_scopes = ([("all", "", ())] + [(f"y{y}", " WHERE year = ?", (y,)) for y in years]
+                   + [(f"e{i}", " WHERE event_id = ?", (i,)) for i in replay_events])
+    for scope, where, params in play_scopes:
         src.execute("DROP TABLE IF EXISTS temp.gs")
         src.execute("CREATE TEMP TABLE gs (game_id INTEGER PRIMARY KEY)")
-        src.execute("INSERT INTO gs SELECT game_id FROM g" + (" WHERE year = ?" if year else ""),
-                    (year,) if year else ())
+        src.execute("INSERT INTO gs SELECT game_id FROM g" + where, params)
         export_plays(src, dst, scope, top_plays)
 
     # Leaderboards. Events without replay maps (China) have no WPA, so no leaderboard.
