@@ -1,13 +1,13 @@
-# Run update_site.ps1 automatically every day with Windows Task Scheduler.
+# Keep the site updated with Windows Task Scheduler: every hour, run update_site.ps1 -IfDue, which does a full
+# update only if none has finished in the last 24 hours (otherwise it exits at once, with no log).
 #
-#   .\schedule_update.ps1                 daily at 05:00
-#   .\schedule_update.ps1 -At 14:30       daily at another time
+#   .\schedule_update.ps1                 set it up (or update it)
 #   .\schedule_update.ps1 -Remove         stop the automatic updates
 #
-# The task runs as you, only while you're logged in, and catches up when the PC wakes if it missed a run.
+# The task runs as you, only while you're logged in and the PC is on (it never wakes the PC), in a hidden
+# window so nothing pops up.
 # Check it: Task Scheduler > Task Scheduler Library > "VCT site update", or the logs in data\logs\.
 param(
-    [string]$At = "05:00",
     [switch]$Remove
 )
 $ErrorActionPreference = "Stop"
@@ -20,12 +20,15 @@ if ($Remove) {
 }
 
 $script = Join-Path $PSScriptRoot "update_site.ps1"
-$action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$script`"" -WorkingDirectory $PSScriptRoot
-$trigger = New-ScheduledTaskTrigger -Daily -At $At
+# conhost --headless runs PowerShell without a console window flashing up every hour.
+$action = New-ScheduledTaskAction -Execute "conhost.exe" `
+    -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$script`" -IfDue" `
+    -WorkingDirectory $PSScriptRoot
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddHours((Get-Date).Hour + 1) `
+    -RepetitionInterval (New-TimeSpan -Hours 1)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Hours 3) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings `
-    -Description "Scrape new VCT matches and update the website's /vct/ data (vct-ratings\update_site.ps1)" `
+    -Description "Every hour: update the website's /vct/ data if no update has finished in 24 hours (vct-ratings\update_site.ps1 -IfDue)" `
     -Force | Out-Null
-Write-Host "Scheduled '$name' daily at $At. Logs go to data\logs\."
+Write-Host "Scheduled '$name': hourly check, full update when none has finished in 24 hours. Logs go to data\logs\."

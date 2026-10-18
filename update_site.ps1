@@ -9,17 +9,26 @@
 #   .\update_site.ps1 -NoScrape     skip scraping: rebuild from what's saved (e.g. after a rule change)
 #   .\update_site.ps1 -PublishOnly  only re-export and upload the current vct.db
 #   .\update_site.ps1 -Force        rebuild and publish even if the scrape found nothing new
+#   .\update_site.ps1 -IfDue        only if no run has finished in the last 24 hours (what the hourly task uses)
 #
-# Every run is logged to data\logs\update-<date>.log. schedule_update.ps1 runs this daily.
+# Every run is logged to data\logs\update-<date>.log, and each finished run (including "nothing new")
+# records its time in data\last_update.txt. schedule_update.ps1 runs this with -IfDue every hour.
 # Needs GITHUB_TOKEN (and optionally RENDER_DEPLOY_HOOK) in .env; see model/publish_site.py.
 param(
     [switch]$NoScrape,
     [switch]$PublishOnly,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$IfDue
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 $python = ".\.venv\Scripts\python.exe"
+$lastRunFile = "data\last_update.txt"
+
+if ($IfDue -and (Test-Path $lastRunFile)) {
+    $last = [datetime]::Parse((Get-Content $lastRunFile -Raw).Trim(), [Globalization.CultureInfo]::InvariantCulture)
+    if (((Get-Date) - $last).TotalHours -lt 24) { return }  # ran recently: nothing to do, no log
+}
 
 New-Item -ItemType Directory -Force data\logs | Out-Null
 Start-Transcript -Path ("data\logs\update-{0:yyyy-MM-dd_HHmm}.log" -f (Get-Date)) | Out-Null
@@ -39,6 +48,7 @@ try {
             Write-Host "$new new pages saved"
             if ($new -eq 0 -and -not $Force) {
                 Write-Host "`nNothing new; site data unchanged." -ForegroundColor Green
+                (Get-Date).ToString("o") | Set-Content $lastRunFile
                 return
             }
         }
@@ -53,6 +63,7 @@ try {
     & $python model\publish_site.py
     if ($LASTEXITCODE -ne 0) { throw "publish_site failed (exit code $LASTEXITCODE)" }
 
+    (Get-Date).ToString("o") | Set-Content $lastRunFile
     Write-Host "`nSite data updated." -ForegroundColor Green
 }
 finally {
