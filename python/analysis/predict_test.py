@@ -12,7 +12,7 @@ winner. Every stat is scored on exactly the same maps.
   - 95% ranges on test log-loss differences come from resampling matches (bootstrap).
 
 Run from the project root after event_wpa.py:
-    .venv\\Scripts\\python model\\predict_test.py
+    .venv\\Scripts\\python python\\analysis\\predict_test.py
 """
 import argparse
 import sqlite3

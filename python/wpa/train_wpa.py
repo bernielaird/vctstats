@@ -3,11 +3,11 @@
 Reads game_states_full from vct.db (built by `gradlew run --args="build-db"`), compares
 three models on a held-out season, then writes an attacker win probability for every
 state (state_win_prob) and for the moment just before every action (event_prob_before).
-model/event_wpa.py turns those into credit per player.
+python/wpa/event_wpa.py turns those into credit per player.
 
 Run from the project root:
-    .venv\\Scripts\\python model\\train_wpa.py
-    .venv\\Scripts\\python model\\train_wpa.py --db data\\vct.db --test-from 2026-01-01
+    .venv\\Scripts\\python python\\wpa\\train_wpa.py
+    .venv\\Scripts\\python python\\wpa\\train_wpa.py --db data\\vct.db --test-from 2026-01-01
 
 build-db recreates vct.db from scratch, so run this again after every build-db.
 """
@@ -271,7 +271,7 @@ def main():
                                             for k, v in metrics(df["atk_won"].to_numpy(), probs).items()})
         write_probs(args.db, df, probs)
         write_before(args.db, before, probs_before)
-        print(f"Wrote state_win_prob and event_prob_before to {args.db}. Next: model\\event_wpa.py")
+        print(f"Wrote state_win_prob and event_prob_before to {args.db}. Next: python\\wpa\\event_wpa.py")
     print(f"Done in {time.time() - started:.0f}s")
 
 

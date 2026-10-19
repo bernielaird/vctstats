@@ -1,6 +1,6 @@
 """Credit every change in round win probability to the action (and player) that caused it.
 
-Needs state_win_prob and event_prob_before, written by model/train_wpa.py. Writes:
+Needs state_win_prob and event_prob_before, written by python/wpa/train_wpa.py. Writes:
 
   event_wpa     one row per kill / plant / defuse: win probability before and after,
                 the action's change, and the credit to the actor and the victim
@@ -24,7 +24,7 @@ Credit (to the player's own team, so positive = helped their team):
                                 planter / defuser
 
 Run from the project root after train_wpa.py:
-    .venv\\Scripts\\python model\\event_wpa.py
+    .venv\\Scripts\\python python\\wpa\\event_wpa.py
 """
 import argparse
 import sqlite3

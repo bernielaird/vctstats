@@ -5,15 +5,15 @@
 #   4. publish_site.py        upload it to the GitHub Release, trigger Render's redeploy
 #
 # Usage, from the project root:
-#   .\update_site.ps1               the whole thing
-#   .\update_site.ps1 -NoScrape     skip scraping: rebuild from what's saved (e.g. after a rule change)
-#   .\update_site.ps1 -PublishOnly  only re-export and upload the current vct.db
-#   .\update_site.ps1 -Force        rebuild and publish even if the scrape found nothing new
-#   .\update_site.ps1 -IfDue        only if no run has finished in the last 24 hours (what the hourly task uses)
+#   .\scripts\update_site.ps1               the whole thing
+#   .\scripts\update_site.ps1 -NoScrape     skip scraping: rebuild from what's saved (e.g. after a rule change)
+#   .\scripts\update_site.ps1 -PublishOnly  only re-export and upload the current vct.db
+#   .\scripts\update_site.ps1 -Force        rebuild and publish even if the scrape found nothing new
+#   .\scripts\update_site.ps1 -IfDue        only if no run has finished in the last 24 hours (what the hourly task uses)
 #
 # Every run is logged to data\logs\update-<date>.log, and each finished run (including "nothing new")
 # records its time in data\last_update.txt. schedule_update.ps1 runs this with -IfDue every hour.
-# Needs GITHUB_TOKEN (and optionally RENDER_DEPLOY_HOOK) in .env; see model/publish_site.py.
+# Needs GITHUB_TOKEN (and optionally RENDER_DEPLOY_HOOK) in .env; see python/website/publish_site.py.
 param(
     [switch]$NoScrape,
     [switch]$PublishOnly,
@@ -21,7 +21,7 @@ param(
     [switch]$IfDue
 )
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
+Set-Location (Split-Path $PSScriptRoot -Parent)  # the project root (this script lives in scripts/)
 $python = ".\.venv\Scripts\python.exe"
 $lastRunFile = "data\last_update.txt"
 
@@ -52,15 +52,15 @@ try {
                 return
             }
         }
-        .\pipeline.ps1
+        .\scripts\pipeline.ps1
     }
 
     Write-Host "`n=== export_site ===" -ForegroundColor Cyan
-    & $python model\export_site.py
+    & $python python\website\export_site.py
     if ($LASTEXITCODE -ne 0) { throw "export_site failed (exit code $LASTEXITCODE)" }
 
     Write-Host "`n=== publish_site ===" -ForegroundColor Cyan
-    & $python model\publish_site.py
+    & $python python\website\publish_site.py
     if ($LASTEXITCODE -ne 0) { throw "publish_site failed (exit code $LASTEXITCODE)" }
 
     (Get-Date).ToString("o") | Set-Content $lastRunFile

@@ -1,8 +1,8 @@
 """Export the database to a small read-only SQLite file for the personal website's /vct/ pages.
 
-Needs event_wpa (run model/event_wpa.py first). From the project root:
-    .venv\\Scripts\\python model\\export_site.py
-    .venv\\Scripts\\python model\\export_site.py --out ..\\PersonalWebsite\\vct\\data\\vct_site.sqlite
+Needs event_wpa (run python/wpa/event_wpa.py first). From the project root:
+    .venv\\Scripts\\python python\\website\\export_site.py
+    .venv\\Scripts\\python python\\website\\export_site.py --out ..\\PersonalWebsite\\vct\\data\\vct_site.sqlite
 
 Probabilities and credits are stored as integers in basis points (1/10,000) to keep the file small:
 5690 = 56.9%. The name avoids .sqlite3, which the website's .gitignore ignores.
@@ -26,11 +26,11 @@ import re
 import sqlite3
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from report import build  # noqa: E402  same numbers as report.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # python/
+from analysis.report import build  # noqa: E402  same numbers as report.py
 
 BP = 10000  # basis points
-TEAM_COLORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "team_colors.csv")
+TEAM_COLORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "team_colors.csv")
 # Words allowed in team_colors.csv, as shades that work on the site's light and dark backgrounds.
 COLOR_WORDS = {
     "red": "#d7263d", "dark red": "#8f1d2c", "orange": "#f26b1d", "gold": "#d4a72c", "yellow": "#f5d000",
@@ -253,7 +253,7 @@ def main():
 
     with sqlite3.connect(f"file:{args.db}?mode=ro", uri=True) as src:
         if not src.execute("SELECT 1 FROM sqlite_master WHERE name = 'event_wpa'").fetchone():
-            sys.exit("No event_wpa table: run model/event_wpa.py first.")
+            sys.exit("No event_wpa table: run python/wpa/event_wpa.py first.")
         years = [y for (y,) in src.execute("SELECT DISTINCT year FROM events WHERE year IS NOT NULL ORDER BY year")]
         meta = export(src, args.out, years, args.top_plays)
     size = os.path.getsize(args.out) / 1e6

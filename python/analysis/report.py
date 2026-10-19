@@ -1,9 +1,9 @@
 """Player stats + WPA for a season or an event, with uncertainty and shrinkage.
 
-Needs event_wpa (run model/event_wpa.py first). Examples, from the project root:
-    .venv\\Scripts\\python model\\report.py --season 2026
-    .venv\\Scripts\\python model\\report.py --event "VCT 2026: Americas Stage 2"
-    .venv\\Scripts\\python model\\report.py --season 2025 --min-rounds 1000 --top 40
+Needs event_wpa (run python/wpa/event_wpa.py first). Examples, from the project root:
+    .venv\\Scripts\\python python\\analysis\\report.py --season 2026
+    .venv\\Scripts\\python python\\analysis\\report.py --event "VCT 2026: Americas Stage 2"
+    .venv\\Scripts\\python python\\analysis\\report.py --season 2025 --min-rounds 1000 --top 40
 
 Columns:
   rating, acs, kd, kast, adr   from vlr.gg's stat tables, averaged over rounds (all maps)

@@ -81,7 +81,7 @@ Net WPA correlates 0.90 with vlr.gg's rating. The interesting cases are where th
 WPA describes who contributed to winning a given set of rounds. Whether it's a better *skill*
 measure than existing stats is a separate question, tested two ways:
 
-**1. Stability** ([`stability.py`](model/stability.py)). Split each player's maps in two (odd/even,
+**1. Stability** ([`stability.py`](python/analysis/stability.py)). Split each player's maps in two (odd/even,
 in date order) and correlate each stat between the halves; 272 players with 400+ rounds per half.
 
 | Stat | ADR | ACS | Kills/round | K/D | Rating | **Net WPA** | KAST | (FK−FD)/round |
@@ -91,7 +91,7 @@ in date order) and correlate each stat between the halves; 272 players with 400+
 WPA is noisier than rating, ACS or K/D (also within role). First-half K/D predicts second-half WPA
 as well as first-half WPA does (0.61 vs 0.60).
 
-**2. Predicting future maps** ([`predict_test.py`](model/predict_test.py)). For each map, each
+**2. Predicting future maps** ([`predict_test.py`](python/analysis/predict_test.py)). For each map, each
 team's five players are scored with stats from *earlier matches only*; shrinkage is tuned per stat
 on 2023–2024; tested on 1,567 maps from 2025–2026.
 
@@ -167,7 +167,7 @@ Requires JDK 21 and Python 3.12. The scraped data isn't in the repo; a full scra
 # one-time setup
 copy .env.example .env          # then put your contact email in it (sent to vlr.gg)
 python -m venv .venv
-.venv\Scripts\python -m pip install -r model\requirements.txt
+.venv\Scripts\python -m pip install -r python\requirements.txt
 
 # scrape (resumable: rerun to continue)
 .\gradlew.bat run --args="discover"     # since 2023 by default; --since YYYY-MM-DD to change
@@ -175,18 +175,19 @@ python -m venv .venv
 .\gradlew.bat run --args="fetch-logs"
 
 # build the database, the model and WPA
-.\pipeline.ps1                  # -Update to scrape new matches first, -SkipBuild for Python only
+.\scripts\pipeline.ps1                  # -Update to scrape new matches first, -SkipBuild for Python only
 
 # reports
-.venv\Scripts\python model\report.py --season 2026
-.venv\Scripts\python model\report.py --event "VCT 2026: Americas Stage 2"
+.venv\Scripts\python python\analysis\report.py --season 2026
+.venv\Scripts\python python\analysis\report.py --event "VCT 2026: Americas Stage 2"
 
 # validation tests
-.venv\Scripts\python model\stability.py
-.venv\Scripts\python model\predict_test.py
+.venv\Scripts\python python\analysis\stability.py
+.venv\Scripts\python python\analysis\predict_test.py
 
 # tests
 .\gradlew.bat test
+.venv\Scripts\python -m unittest discover -s python\tests
 ```
 
 ## Project layout
@@ -199,8 +200,12 @@ src/main/java/dev/bernie/vct/
   store/    scrape queue (data/scrape.db)
   db/       build-db: schema, game states, prices, validation
 src/test/   JUnit tests, with saved vlr.gg pages as fixtures
-model/      train_wpa.py, event_wpa.py, report.py, stability.py, predict_test.py
-pipeline.ps1
+python/
+  wpa/        train_wpa.py (win probability model), event_wpa.py (credit per kill and player)
+  analysis/   report.py (player tables), stability.py and predict_test.py (validation)
+  website/    export_site.py, publish_site.py, team_colors.csv (data for bernielaird.com/vct)
+  tests/      Python unit tests
+scripts/      pipeline.ps1 (rebuild), update_site.ps1 (scrape + publish), schedule_update.ps1
 ```
 
 ## Data and credit

@@ -11,8 +11,8 @@ Only maps with a replay and a vlr.gg rating are used, so every stat is measured 
 (duelists always have high ACS). 95% ranges are from resampling players (bootstrap).
 
 Run from the project root after event_wpa.py:
-    .venv\\Scripts\\python model\\stability.py
-    .venv\\Scripts\\python model\\stability.py --season 2026 --min-rounds 400
+    .venv\\Scripts\\python python\\analysis\\stability.py
+    .venv\\Scripts\\python python\\analysis\\stability.py --season 2026 --min-rounds 400
 """
 import argparse
 import sqlite3

@@ -1,8 +1,8 @@
 """Upload the website's data file to a GitHub Release, then tell Render to redeploy.
 
 Run after export_site.py (update_site.ps1 does both). From the project root:
-    .venv\\Scripts\\python model\\publish_site.py
-    .venv\\Scripts\\python model\\publish_site.py --no-deploy     upload only
+    .venv\\Scripts\\python python\\website\\publish_site.py
+    .venv\\Scripts\\python python\\website\\publish_site.py --no-deploy     upload only
 
 The file is gzipped and replaces the asset on the release tagged site-data (created if missing), so its
 download URL never changes:
@@ -90,7 +90,7 @@ def main():
     if not release:
         release = github("POST", f"{api}/releases", token, json.dumps({
             "tag_name": TAG, "name": "Website data",
-            "body": "Data file for the website's /vct/ pages. Replaced by model/publish_site.py on every update.",
+            "body": "Data file for the website's /vct/ pages. Replaced by python/website/publish_site.py on every update.",
         }).encode())
         print(f"Created release {TAG}")
     for asset in release.get("assets", []):
