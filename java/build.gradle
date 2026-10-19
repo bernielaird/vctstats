@@ -30,9 +30,10 @@ application {
     mainClass = 'dev.bernie.vct.cli.Main'
 }
 
-// Lets you run: ./gradlew run --args="discover --max-pages 5"
+// Lets you run, from the repo root: .\java\gradlew.bat -p java run --args="discover --max-pages 5"
+// The scraper reads data/ and .env relative to its working folder: the repo root, one level up.
 run {
-    workingDir = rootProject.projectDir
+    workingDir = rootProject.projectDir.parentFile
 }
 
 test {

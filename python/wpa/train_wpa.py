@@ -1,6 +1,6 @@
 """Train the round win-probability model behind WPA, and score every game state.
 
-Reads game_states_full from vct.db (built by `gradlew run --args="build-db"`), compares
+Reads game_states_full from vct.db (built by `java\\gradlew.bat -p java run --args="build-db"`), compares
 three models on a held-out season, then writes an attacker win probability for every
 state (state_win_prob) and for the moment just before every action (event_prob_before).
 python/wpa/event_wpa.py turns those into credit per player.

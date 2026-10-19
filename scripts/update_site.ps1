@@ -42,7 +42,7 @@ try {
         if (-not $NoScrape) {
             $before = SavedPages
             Write-Host "`n=== update (scrape new matches) ===" -ForegroundColor Cyan
-            .\gradlew.bat run --args="update" --console=plain -q
+            .\java\gradlew.bat -p java run --args="update" --console=plain -q
             if ($LASTEXITCODE -ne 0) { throw "update failed (exit code $LASTEXITCODE)" }
             $new = (SavedPages) - $before
             Write-Host "$new new pages saved"

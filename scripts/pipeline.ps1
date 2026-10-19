@@ -29,10 +29,10 @@ function Step($name, [scriptblock]$block) {
 }
 
 if ($Update) {
-    Step "update (scrape new matches)" { .\gradlew.bat run --args="update" --console=plain -q }
+    Step "update (scrape new matches)" { .\java\gradlew.bat -p java run --args="update" --console=plain -q }
 }
 if (-not $SkipBuild) {
-    Step "build-db" { .\gradlew.bat run --args="build-db" --console=plain -q }
+    Step "build-db" { .\java\gradlew.bat -p java run --args="build-db" --console=plain -q }
 }
 Step "train_wpa" { & $python python\wpa\train_wpa.py }
 Step "event_wpa" { & $python python\wpa\event_wpa.py }

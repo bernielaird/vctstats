@@ -132,7 +132,7 @@ vlr.gg ──scrape──> data/raw/*.html ──build-db──> data/vct.db ─
    replay kills match the stat table, every replay player maps to a vlr.gg ID, and so on.
 3. **Game states**: a state at round start and after every kill and plant, until the round is
    decided: players alive, seconds in, spike planted and time since, loadout value of living players
-   (from a [price table](src/main/java/dev/bernie/vct/db/Prices.java)), bank, weapon counts, score.
+   (from a [price table](java/src/main/java/dev/bernie/vct/db/Prices.java)), bank, weapon counts, score.
 4. **train_wpa.py**: compares the three models above, then scores every state out-of-fold
    (5 folds grouped by match), so no state is scored by a model that saw its match.
 5. **event_wpa.py**: splits each change in win probability into the clock's part (time passing,
@@ -170,9 +170,9 @@ python -m venv .venv
 .venv\Scripts\python -m pip install -r python\requirements.txt
 
 # scrape (resumable: rerun to continue)
-.\gradlew.bat run --args="discover"     # since 2023 by default; --since YYYY-MM-DD to change
-.\gradlew.bat run --args="fetch"
-.\gradlew.bat run --args="fetch-logs"
+.\java\gradlew.bat -p java run --args="discover"     # since 2023 by default; --since YYYY-MM-DD to change
+.\java\gradlew.bat -p java run --args="fetch"
+.\java\gradlew.bat -p java run --args="fetch-logs"
 
 # build the database, the model and WPA
 .\scripts\pipeline.ps1                  # -Update to scrape new matches first, -SkipBuild for Python only
@@ -186,20 +186,21 @@ python -m venv .venv
 .venv\Scripts\python python\analysis\predict_test.py
 
 # tests
-.\gradlew.bat test
+.\java\gradlew.bat -p java test
 .venv\Scripts\python -m unittest discover -s python\tests
 ```
 
 ## Project layout
 
 ```
-src/main/java/dev/bernie/vct/
-  cli/      commands (Main) and .env settings
-  fetch/    Fetcher: the only code that talks to vlr.gg
-  parse/    results, match and replay page parsers; VCT event filter
-  store/    scrape queue (data/scrape.db)
-  db/       build-db: schema, game states, prices, validation
-src/test/   JUnit tests, with saved vlr.gg pages as fixtures
+java/         scraper + database (Gradle project: build.gradle, gradlew)
+  src/main/java/dev/bernie/vct/
+    cli/      commands (Main) and .env settings
+    fetch/    Fetcher: the only code that talks to vlr.gg
+    parse/    results, match and replay page parsers; VCT event filter
+    store/    scrape queue (data/scrape.db)
+    db/       build-db: schema, game states, prices, validation
+  src/test/   JUnit tests, with saved vlr.gg pages as fixtures
 python/
   wpa/        train_wpa.py (win probability model), event_wpa.py (credit per kill and player)
   analysis/   report.py (player tables), stability.py and predict_test.py (validation)
